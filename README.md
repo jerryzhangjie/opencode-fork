@@ -1,3 +1,19 @@
+启动前端服务：
+
+cd packages/app
+
+bun install
+
+bun dev -- --port 4444
+
+启动后端服务：
+
+cd packages/opencode
+
+bun install
+
+bun run --conditions=browser ./src/index.ts serve --port 4096
+
 <p align="center">
   <a href="https://opencode.ai">
     <picture>
