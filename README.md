@@ -1,18 +1,22 @@
-启动前端服务：
+> fork自 opencode Tag-v1.4.0
 
+启动前端服务：
+```bash
 cd packages/app
 
 bun install
 
 bun dev -- --port 4444
+```
 
 启动后端服务：
-
+```bash
 cd packages/opencode
 
 bun install
 
 bun run --conditions=browser ./src/index.ts serve --port 4096
+```
 
 <p align="center">
   <a href="https://opencode.ai">
