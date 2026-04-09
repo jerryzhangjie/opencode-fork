@@ -18,6 +18,13 @@ bun install
 bun run --conditions=browser ./src/index.ts serve --port 4096
 ```
 
+演示部署：
+```bash
+cd /usr/local/etc/nginx
+
+sudo nginx -s reload
+```
+
 <p align="center">
   <a href="https://opencode.ai">
     <picture>
