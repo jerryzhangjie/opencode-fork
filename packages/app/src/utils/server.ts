@@ -14,9 +14,14 @@ export function createSdkForServer({
     }
   })()
 
+  // 构建产物中，接口路径带有前缀 /ai-hci-api，开发环境中为根路径
+  const baseUrl = import.meta.env.DEV
+    ? server.url
+    : server.url.replace(/\/$/, "") + "/ai-hci-api"
+  
   return createOpencodeClient({
     ...config,
     headers: { ...config.headers, ...auth },
-    baseUrl: server.url,
+    baseUrl,
   })
 }
