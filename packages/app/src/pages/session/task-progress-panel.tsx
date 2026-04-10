@@ -115,15 +115,36 @@ const getTodoStatusLabel = (status: string) => {
 }
 
 export function TaskProgressPanel(props: TaskProgressPanelProps) {
-  // 🔑 修改处 1：从接口数据中直接提取智能体，不再依赖 agentConfig 的 key
+  // 🔑 核心修改：动态注入项目经理智能体
   const allAgents = createMemo(() => {
     const detail = props.scheduleDetail()
-    // 兼容 steps.agents 和 直接返回的 agents 字段
-    const stepAgents = (detail.steps || []).flatMap((s) => s.agents || [])
-    const directAgents = detail.agents || []
-    const combined = [...stepAgents, ...directAgents]
+    const steps = detail.steps || []
 
-    // 按 name 去重，保留接口返回的顺序
+    // 1. 收集原有步骤中的真实智能体
+    const stepAgents = steps.flatMap((s) => s.agents || [])
+    const directAgents = detail.agents || []
+    const combined: AgentInfo[] = [...stepAgents, ...directAgents]
+
+     // 2. 匹配 primary / user_gate 模式，注入项目经理
+    const pmSteps = steps.filter((s) => s.mode === "primary" || s.mode === "user_gate")
+    if (pmSteps.length > 0) {
+      // 🔑 状态逻辑更新：只要有一个 in_progress 就取；若没有，则从 completed 中任取一个
+      const targetStep =
+        pmSteps.find((s) => s.status === "in_progress") ||
+        pmSteps.find((s) => s.status === "completed") ||
+        pmSteps[0] // 安全兜底：处理全为 pending 或混合状态的边界情况
+      if (targetStep) {
+        combined.unshift({
+          name: "project-manager",
+          status: targetStep.status,
+          description: targetStep.name, // 描述复用步骤名称，便于悬停提示
+          dispatchedAt: targetStep.startedAt,
+          completedAt: targetStep.completedAt,
+        })
+      }
+    }
+
+    // 3. 按 name 去重（unshift 保证了项目经理排在最前）
     const uniqueMap = new Map<string, AgentInfo>()
     for (const agent of combined) {
       if (!uniqueMap.has(agent.name)) {
@@ -168,13 +189,13 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
           fallback={<div class="sp-empty">暂无任务进展</div>}
         >
           <div class="sp-detail">
-            <div class="spd-header">
+            {/* <div class="spd-header">
               <span class="spd-id">{props.selectedTask()?.id}</span>
               <span class={`tag st-${props.selectedTask()?.status}`}>{props.selectedTask()?.statusLabel}</span>
-            </div>
+            </div> */}
             <h3 class="spd-title">{props.scheduleDetail().task}</h3>
 
-             <Show when={allAgents().length}>
+            <Show when={allAgents().length}>
               <div class="spd-section">
                 <div class="spdt-header">执行阶段</div>
                 <div class="spd-agents-flow-wrapper">
