@@ -471,6 +471,15 @@ export default function Page() {
   const hasSessionReview = createMemo(() => sessionCount() > 0)
   const canReview = createMemo(() => !!sync.project)
   const reviewTab = createMemo(() => isDesktop())
+
+  createEffect(
+    on(
+      () => params.dir,
+      (dir) => {
+        if (dir) localStorage.setItem("codeDirectoryId", dir)
+      },
+    ),
+  )
   const tabState = createSessionTabs({
     tabs,
     pathFromTab: file.pathFromTab,
