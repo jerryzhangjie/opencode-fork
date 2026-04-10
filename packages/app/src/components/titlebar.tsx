@@ -176,6 +176,16 @@ export function Titlebar() {
       >
         <Show when={mac()}>
           <div class="h-full shrink-0" style={{ width: `${72 / zoom()}px` }} />
+          <Button
+            variant="ghost"
+            size="small"
+            class="text-14-regular text-text-weak hover:text-text-base mr-1"
+            onClick={() => {
+              window.location.href = "/ai-design"
+            }}
+          >
+            首页
+          </Button>
           <div class="xl:hidden w-10 shrink-0 flex items-center justify-center">
             <IconButton
               icon="menu"
@@ -188,6 +198,16 @@ export function Titlebar() {
           </div>
         </Show>
         <Show when={!mac()}>
+          <Button
+            variant="ghost"
+            size="small"
+            class="text-14-regular text-text-weak hover:text-text-base mr-1"
+            onClick={() => {
+              window.location.href = "/ai-design"
+            }}
+          >
+            首页
+          </Button>
           <div class="xl:hidden w-[48px] shrink-0 flex items-center justify-center">
             <IconButton
               icon="menu"

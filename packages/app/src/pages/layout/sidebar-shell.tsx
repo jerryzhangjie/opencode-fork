@@ -66,7 +66,7 @@ export const SidebarContent = (props: {
               <SortableProvider ids={props.projects().map((p) => p.worktree)}>
                 <For each={props.projects()}>{(project) => props.renderProject(project)}</For>
               </SortableProvider>
-              <Tooltip
+              {/* <Tooltip
                 placement={placement()}
                 value={
                   <div class="flex items-center gap-2">
@@ -84,7 +84,7 @@ export const SidebarContent = (props: {
                   onClick={props.onOpenProject}
                   aria-label={typeof props.openProjectLabel === "string" ? props.openProjectLabel : undefined}
                 />
-              </Tooltip>
+              </Tooltip> */}
             </div>
             <DragOverlay>{props.renderProjectOverlay()}</DragOverlay>
           </DragDropProvider>

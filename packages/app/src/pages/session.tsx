@@ -329,7 +329,7 @@ export default function Page() {
   const prompt = usePrompt()
   const comments = useComments()
   const terminal = useTerminal()
-  const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
+  const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string; firstChat?: string }>()
   const { params, sessionKey, tabs, view } = useSessionLayout()
 
   createEffect(() => {
@@ -340,6 +340,42 @@ export default function Page() {
       if (!text) return
       prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
       setSearchParams({ ...searchParams, prompt: undefined })
+    })
+  })
+
+  // 页面链接带有参数firstChat则自动发起对话
+  createEffect(() => {
+    if (!prompt.ready()) return
+    if (!local.model.ready()) return
+    if (sync.status === "loading") return
+    untrack(() => {
+      const id = params.id
+      if (!id) return
+      const encoded = searchParams.firstChat
+      if (!encoded) return
+      const text = decodeURIComponent(encoded)
+      const currentModel = local.model.current()
+      const currentAgent = local.agent.current()
+      if (!currentModel || !currentAgent) return
+      prompt.set([{ type: "text", content: text, start: 0, end: text.length }], text.length)
+      void sendFollowupDraft({
+        client: sdk.client,
+        sync,
+        globalSync,
+        draft: {
+          sessionID: id,
+          sessionDirectory: sdk.directory,
+          prompt: [{ type: "text", content: text, start: 0, end: text.length }],
+          context: prompt.context.items(),
+          agent: currentAgent.name,
+          model: { providerID: currentModel.provider.id, modelID: currentModel.id },
+          variant: local.model.variant.current(),
+        },
+        optimisticBusy: true,
+      }).finally(() => {
+        prompt.reset()
+        setSearchParams({ ...searchParams, firstChat: undefined })
+      })
     })
   })
 
