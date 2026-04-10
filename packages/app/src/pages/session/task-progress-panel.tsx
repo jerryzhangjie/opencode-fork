@@ -249,6 +249,14 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
                                   <span class="spcd-label">开始时间：</span>
                                   <span class="spcd-value">{formatFullTime(activeAgent()?.dispatchedAt ?? null)}</span>
                                 </div>
+                                <div class="spcd-row">
+                                  <span class="spcd-label">完成时间：</span>
+                                  <span class="spcd-value">
+                                    {activeAgent()?.completedAt
+                                      ? formatFullTime(activeAgent()?.completedAt ?? null)
+                                      : "-"}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           </Show>
