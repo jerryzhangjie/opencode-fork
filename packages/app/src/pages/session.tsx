@@ -13,6 +13,7 @@ import {
   on,
   onMount,
   untrack,
+  createSignal,
 } from "solid-js"
 import { makeEventListener } from "@solid-primitives/event-listener"
 import { createMediaQuery } from "@solid-primitives/media"
@@ -54,6 +55,12 @@ import { type DiffStyle, SessionReviewTab, type SessionReviewTabProps } from "@/
 import { useSessionLayout } from "@/pages/session/session-layout"
 import { syncSessionModel } from "@/pages/session/session-model-helpers"
 import { SessionSidePanel } from "@/pages/session/session-side-panel"
+import {
+  TaskProgressPanel,
+  type AgentScheduleDetail,
+  type AgentConfig,
+  type TaskInfo,
+} from "@/pages/session/task-progress-panel"
 import { TerminalPanel } from "@/pages/session/terminal-panel"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
@@ -388,6 +395,53 @@ export default function Page() {
       bottom: true,
       jump: false,
     },
+  })
+
+  const [selectedTask, setSelectedTask] = createSignal<TaskInfo | null>(null)
+  const [scheduleDetail, setScheduleDetail] = createSignal<AgentScheduleDetail>({})
+  let pollingTimer: ReturnType<typeof setInterval> | undefined
+
+  const fetchAgentScheduleDetail = async (codeDirectoryId: string) => {
+    try {
+      const response = await fetch(
+        `http://localhost:8888/workOrder/agentScheduleDetail?codeDirectoryId=${encodeURIComponent(codeDirectoryId)}`,
+      {
+          headers: {
+            username: "cuixujia",
+          },
+        },
+      )
+      const result = await response.json()
+      if (result && result.code === 0 && result.data) {
+        setScheduleDetail(result.data)
+        if (result.data.steps) {
+        setSelectedTask(result.data)
+        }
+      }
+    } catch (error) {
+      console.error("获取任务进展失败:", error)
+    }
+  }
+
+  const startPolling = (codeDirectoryId: string) => {
+    if (pollingTimer) {
+      clearInterval(pollingTimer)
+      pollingTimer = undefined
+    }
+    pollingTimer = setInterval(() => {
+      void fetchAgentScheduleDetail(codeDirectoryId)
+    }, 3000)
+  }
+
+  const stopPolling = () => {
+    if (pollingTimer) {
+      clearInterval(pollingTimer)
+      pollingTimer = undefined
+    }
+  }
+
+  onCleanup(() => {
+    stopPolling()
   })
 
   const composer = createSessionComposerState()
@@ -832,6 +886,18 @@ export default function Page() {
     if (gitMutation.isPending) return
     gitMutation.mutate()
   }
+
+  const loadTaskProgress = () => {
+    const codeDirectoryId = params.dir
+    if (codeDirectoryId) {
+      void fetchAgentScheduleDetail(codeDirectoryId)
+      startPolling(codeDirectoryId)
+    }
+  }
+
+  onMount(() => {
+    void loadTaskProgress()
+  })
 
   let inputRef!: HTMLDivElement
   let promptDock: HTMLDivElement | undefined
@@ -2089,7 +2155,7 @@ export default function Page() {
           </Show>
         </div>
 
-        <SessionSidePanel
+        {/* <SessionSidePanel
           canReview={canReview}
           diffs={reviewDiffs}
           diffsReady={reviewReady}
@@ -2101,6 +2167,20 @@ export default function Page() {
           focusReviewDiff={focusReviewDiff}
           reviewSnap={ui.reviewSnap}
           size={size}
+        /> */}
+        <TaskProgressPanel
+          selectedTask={selectedTask}
+          scheduleDetail={scheduleDetail}
+          agentConfig={() => ({
+            "project-manager": { label: "项目经理", icon: "📋" },
+            "product-manager": { label: "产品经理", icon: "📱" },
+            "ui-designer": { label: "UI 设计", icon: "🎨" },
+            "frontend-manager": { label: "前端技术经理", icon: "🏗️" },
+            "frontend-component-expert": { label: "前端组件专家", icon: "🧩" },
+            "frontend-module-developer": { label: "前端模块开发专家", icon: "💻" },
+            "qa-engineer": { label: "测试专家", icon: "🧪" },
+            default: { label: "智能代理", icon: "🤖" },
+          })}
         />
       </div>
 
