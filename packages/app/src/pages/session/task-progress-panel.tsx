@@ -255,7 +255,6 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
                                 <div class="spcd-row">
                                   <span class="spcd-label">🚀 当前执行：</span>
                                   <span class="spcd-value">
-                                    {getAgentLabel(activeAgent()!.name, props.agentConfig())} -{" "}
                                     {activeAgent()?.description || "-"}
                                   </span>
                                 </div>
