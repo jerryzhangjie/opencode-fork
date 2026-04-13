@@ -75,19 +75,6 @@ export type TaskProgressPanelProps = {
   class?: string
 }
 
-const formatFullTime = (timeStr?: string | null) => {
-  if (!timeStr) return "-"
-  const date = new Date(timeStr)
-  if (isNaN(date.getTime())) return timeStr
-  const Y = date.getFullYear()
-  const M = String(date.getMonth() + 1).padStart(2, "0")
-  const D = String(date.getDate()).padStart(2, "0")
-  const h = String(date.getHours()).padStart(2, "0")
-  const m = String(date.getMinutes()).padStart(2, "0")
-  const s = String(date.getSeconds()).padStart(2, "0")
-  return `${Y}-${M}-${D} ${h}:${m}:${s}`
-}
-
 const formatShortTime = (timeStr?: string) => {
   if (!timeStr) return "-"
   const date = new Date(timeStr)
@@ -125,14 +112,12 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     const directAgents = detail.agents || []
     const combined: AgentInfo[] = [...stepAgents, ...directAgents]
 
-     // 2. 匹配 primary / user_gate 模式，注入项目经理
+    // 2. 匹配 primary / user_gate 模式，注入项目经理
     const pmSteps = steps.filter((s) => s.mode === "primary" || s.mode === "user_gate")
     if (pmSteps.length > 0) {
       // 🔑 状态逻辑更新：只要有一个 in_progress 就取；若没有，则从 completed 中任取一个
       const targetStep =
-        pmSteps.find((s) => s.status === "in_progress") ||
-        pmSteps.find((s) => s.status === "completed") ||
-        pmSteps[0] // 安全兜底：处理全为 pending 或混合状态的边界情况
+        pmSteps.find((s) => s.status === "in_progress") || pmSteps.find((s) => s.status === "completed") || pmSteps[0] // 安全兜底：处理全为 pending 或混合状态的边界情况
       if (targetStep) {
         combined.unshift({
           name: "project-manager",
@@ -156,11 +141,19 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
 
   const todosFromSteps = createMemo(() => {
     const steps = props.scheduleDetail().steps || []
-    return steps.map((step) => ({
-      id: step.id,
-      content: step.name,
-      status: step.status as "pending" | "in_progress" | "completed",
-    }))
+    // 过滤掉空占位对象（id 或 name 为空则视为无效数据）
+    return steps
+      .filter((step) => step.id && step.name)
+      .map((step) => ({
+        id: step.id,
+        content: step.name,
+        status: step.status as "pending" | "in_progress" | "completed",
+      }))
+  })
+  const filteredAgentFlow = createMemo(() => {
+    const flows = props.scheduleDetail().agentFlow || []
+    // 过滤掉 from/to 为空或纯空格的无效记录
+    return flows.filter((flow) => flow.from?.trim() && flow.to?.trim() && flow.timestamp)
   })
 
   const todoPercent = createMemo(() => {
@@ -268,14 +261,14 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
                                 </div>
                                 <div class="spcd-row">
                                   <span class="spcd-label">开始时间：</span>
-                                  <span class="spcd-value">{formatFullTime(activeAgent()?.dispatchedAt ?? null)}</span>
+                                  <span class="spcd-value">
+                                    {activeAgent()?.dispatchedAt ? (activeAgent()?.dispatchedAt ?? null) : "-"}
+                                  </span>
                                 </div>
                                 <div class="spcd-row">
                                   <span class="spcd-label">完成时间：</span>
                                   <span class="spcd-value">
-                                    {activeAgent()?.completedAt
-                                      ? formatFullTime(activeAgent()?.completedAt ?? null)
-                                      : "-"}
+                                    {activeAgent()?.completedAt ? (activeAgent()?.completedAt ?? null) : "-"}
                                   </span>
                                 </div>
                               </div>
@@ -289,11 +282,11 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
               </div>
             </Show>
 
-            <Show when={props.scheduleDetail().agentFlow?.length}>
+            <Show when={filteredAgentFlow().length}>
               <div class="spd-section">
                 <div class="spdt-header">流转日志</div>
                 <div class="spd-flow-list-centered">
-                  <For each={props.scheduleDetail().agentFlow}>
+                  <For each={filteredAgentFlow()}>
                     {(flow) => (
                       <div class="spdtr-item-centered">
                         <span class="spdtr-time">{formatShortTime(flow.timestamp)}</span>
