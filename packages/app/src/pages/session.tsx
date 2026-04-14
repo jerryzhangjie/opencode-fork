@@ -369,7 +369,7 @@ export default function Page() {
     try {
       const response = await fetch(
         `http://localhost:8888/workOrder/agentScheduleDetail?codeDirectoryId=${encodeURIComponent(codeDirectoryId)}`,
-      {
+        {
           headers: {
             username: "cuixujia",
           },
@@ -379,7 +379,7 @@ export default function Page() {
       if (result && result.code === 0 && result.data) {
         setScheduleDetail(result.data)
         if (result.data.steps) {
-        setSelectedTask(result.data)
+          setSelectedTask(result.data)
         }
       }
     } catch (error) {
@@ -502,6 +502,11 @@ export default function Page() {
   const activeFileTab = tabState.activeFileTab
   const revertMessageID = createMemo(() => info()?.revert?.messageID)
   const messages = createMemo(() => (params.id ? (sync.data.message[params.id] ?? []) : []))
+  const allParts = createMemo(() => {
+    if (!params.id) return []
+    const messageMap = sync.data.part[params.id] ?? {}
+    return Object.values(messageMap).flat()
+  })
   const messagesReady = createMemo(() => {
     const id = params.id
     if (!id) return true
@@ -2136,6 +2141,8 @@ export default function Page() {
             "qa-engineer": { label: "测试专家", icon: "🧪" },
             default: { label: "智能代理", icon: "🤖" },
           })}
+          messages={messages}
+          parts={allParts}
         />
       </div>
 

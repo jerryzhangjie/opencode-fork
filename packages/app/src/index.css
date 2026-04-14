@@ -193,14 +193,14 @@
   }
 
   .spf-name {
-    margin: auto 0;          /* 垂直居中：内容少时自动均分上下空间 */
-    max-width: 4.4em;        /* 核心：限制宽度 ≈ 4个中文字符，第5个字自动换行 */
-    text-align: center;      /* 文本水平居中 */
+    margin: auto 0; /* 垂直居中：内容少时自动均分上下空间 */
+    max-width: 4.4em; /* 核心：限制宽度 ≈ 4个中文字符，第5个字自动换行 */
+    text-align: center; /* 文本水平居中 */
     font-size: 11px;
     color: var(--color-text-base);
     font-weight: 500;
     line-height: 1.35;
-    max-height: 2.7em;       /* 严格限制最多显示 2 行 */
+    max-height: 2.7em; /* 严格限制最多显示 2 行 */
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -277,12 +277,18 @@
 
   .spdt-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     font-size: 12px;
     font-weight: 600;
     color: var(--color-text-muted);
     margin-bottom: 8px;
+  }
+
+  .spdt-header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .spdt-percent {
@@ -490,5 +496,58 @@
   .hb.stalled {
     background: rgba(239, 68, 68, 0.15);
     color: #ef4444;
+  }
+
+  .spdt-header-link {
+    font-size: 11px;
+    color: #3b82f6;
+    cursor: pointer;
+    padding: 2px 8px;
+    border-radius: 4px;
+    transition: all 0.2s;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .spdt-active-dot {
+    width: 6px;
+    height: 6px;
+    background: #3b82f6;
+    border-radius: 50%;
+  }
+
+  .spdt-header-link:hover {
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .spf-item.selected {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+  }
+
+  .spf-item.selected .spf-name {
+    color: #3b82f6;
+    font-weight: 600;
+  }
+
+  .spd-agent-output {
+    background: var(--color-surface-raised);
+    border: 1px solid var(--color-border-weak);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .spd-output-content {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--color-text-base);
+    white-space: pre-wrap;
+    word-break: break-word;
+    margin: 0;
+    font-family: inherit;
   }
 }

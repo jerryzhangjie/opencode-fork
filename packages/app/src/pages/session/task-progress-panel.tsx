@@ -1,5 +1,8 @@
 import { For, Show, createMemo, createSignal } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
+import type { Message } from "@opencode-ai/sdk/v2/client"
+import type { Part } from "@opencode-ai/sdk/v2"
+import { useSync } from "@/context/sync"
 
 export type StepAgent = {
   name: string
@@ -72,6 +75,8 @@ export type TaskProgressPanelProps = {
   selectedTask: () => TaskInfo | null
   scheduleDetail: () => AgentScheduleDetail
   agentConfig: () => AgentConfig
+  messages?: () => Message[]
+  parts?: () => Part[]
   class?: string
 }
 
@@ -102,34 +107,33 @@ const getTodoStatusLabel = (status: string) => {
 }
 
 export function TaskProgressPanel(props: TaskProgressPanelProps) {
-  // 🔑 核心修改：动态注入项目经理智能体
+  const sync = useSync()
+  const [selectedAgent, setSelectedAgent] = createSignal<string | null>(null)
+  const [agentOutput, setAgentOutput] = createSignal<string>("")
+
   const allAgents = createMemo(() => {
     const detail = props.scheduleDetail()
     const steps = detail.steps || []
 
-    // 1. 收集原有步骤中的真实智能体
     const stepAgents = steps.flatMap((s) => s.agents || [])
     const directAgents = detail.agents || []
     const combined: AgentInfo[] = [...stepAgents, ...directAgents]
 
-    // 2. 匹配 primary / user_gate 模式，注入项目经理
     const pmSteps = steps.filter((s) => s.mode === "primary" || s.mode === "user_gate")
     if (pmSteps.length > 0) {
-      // 🔑 状态逻辑更新：只要有一个 in_progress 就取；若没有，则从 completed 中任取一个
       const targetStep =
-        pmSteps.find((s) => s.status === "in_progress") || pmSteps.find((s) => s.status === "completed") || pmSteps[0] // 安全兜底：处理全为 pending 或混合状态的边界情况
+        pmSteps.find((s) => s.status === "in_progress") || pmSteps.find((s) => s.status === "completed") || pmSteps[0]
       if (targetStep) {
         combined.unshift({
           name: "project-manager",
           status: targetStep.status,
-          description: targetStep.name, // 描述复用步骤名称，便于悬停提示
+          description: targetStep.name,
           dispatchedAt: targetStep.startedAt,
           completedAt: targetStep.completedAt,
         })
       }
     }
 
-    // 3. 按 name 去重（unshift 保证了项目经理排在最前）
     const uniqueMap = new Map<string, AgentInfo>()
     for (const agent of combined) {
       if (!uniqueMap.has(agent.name)) {
@@ -138,6 +142,72 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     }
     return Array.from(uniqueMap.values())
   })
+
+  const currentSelectedAgent = createMemo(() => {
+    const name = selectedAgent()
+    if (!name) return null
+    return allAgents().find((a) => a.name === name) || null
+  })
+
+  const extractAgentOutput = (agentName: string) => {
+    const messages = props.messages?.()
+    if (!messages || messages.length === 0) return "暂无输出内容"
+
+    const allParts = sync.data.part
+    console.log("allParts keys count:", allParts ? Object.keys(allParts).length : 0)
+
+    const assistantMessages = messages.filter((m) => m.role === "assistant")
+    const userMessages = messages.filter((m) => m.role === "user")
+    const pmUserMsgs = userMessages.filter((m) => m.agent === "product-manager")
+    console.log("User messages with product-manager:", pmUserMsgs.length)
+    if (pmUserMsgs.length > 0) {
+      const pmUserMsg = pmUserMsgs[0]
+      const msgId = (pmUserMsg as any).id
+      console.log("PM user msgID:", msgId)
+      const childParts = allParts?.[msgId]
+      console.log("Child parts for PM user:", childParts?.length)
+    }
+
+    const filtered = assistantMessages.filter((m) => m.agent === agentName)
+
+    if (filtered.length === 0) {
+      if (agentName === "project-manager") {
+        if (assistantMessages.length === 0) return "暂无输出内容"
+        const lastMsg = assistantMessages[assistantMessages.length - 1]
+        const msgId = (lastMsg as any).id
+        const msgParts = sync.data.part?.[msgId]
+        if (!msgParts || msgParts.length === 0) return "暂无输出内容"
+        const textParts = msgParts.filter((p: any) => p.type === "text" && p.text?.trim())
+        if (textParts.length === 0) return "暂无输出内容"
+        return textParts.map((p: any) => p.text).join("\n")
+      }
+      return "暂无输出内容"
+    }
+
+    const texts: string[] = []
+    for (const msg of filtered) {
+      const msgId = (msg as any).id
+      const msgParts = sync.data.part?.[msgId]
+      if (!msgParts) continue
+      for (const part of msgParts) {
+        if (part.type === "text" && part.text?.trim()) {
+          texts.push(part.text)
+        }
+      }
+    }
+
+    return texts.length > 0 ? texts.join("\n") : "暂无输出内容"
+  }
+
+  const handleAgentClick = (agent: AgentInfo) => {
+    setSelectedAgent(agent.name)
+    setAgentOutput(extractAgentOutput(agent.name))
+  }
+
+  const handleShowAll = () => {
+    setSelectedAgent(null)
+    setAgentOutput("")
+  }
 
   const todosFromSteps = createMemo(() => {
     const steps = props.scheduleDetail().steps || []
@@ -190,14 +260,29 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
 
             <Show when={allAgents().length}>
               <div class="spd-section">
-                <div class="spdt-header">执行阶段</div>
+                <div class="spdt-header">
+                  <span class="spdt-header-left">
+                    执行阶段
+                    <span
+                      class={`spdt-header-link ${selectedAgent() === null ? "active" : ""}`}
+                      onClick={handleShowAll}
+                    >
+                      全部进程
+                      <Show when={selectedAgent() === null}>
+                        <span class="spdt-active-dot" />
+                      </Show>
+                    </span>
+                  </span>
+                </div>
                 <div class="spd-agents-flow-wrapper">
                   <div class="spd-agents-flow">
                     <For each={allAgents()}>
                       {(agent) => (
                         <div
-                          class={`spf-item ${getAgentStatusClass(agent.status)}`}
+                          class={`spf-item ${getAgentStatusClass(agent.status)} ${selectedAgent() === agent.name ? "selected" : ""}`}
                           title={getAgentLabel(agent.name, props.agentConfig())}
+                          onClick={() => handleAgentClick(agent)}
+                          style={{ cursor: "pointer" }}
                         >
                           <div class="spf-icon-wrapper">
                             <span class="spf-icon">{getAgentIcon(agent.name, props.agentConfig())}</span>
@@ -212,7 +297,18 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
               </div>
             </Show>
 
-            <Show when={todosFromSteps().length}>
+            <Show when={selectedAgent() !== null && currentSelectedAgent()}>
+              <div class="spd-section">
+                <div class="spdt-header">
+                  <span>{getAgentLabel(currentSelectedAgent()!.name, props.agentConfig())} 输出</span>
+                </div>
+                <div class="spd-agent-output">
+                  <pre class="spd-output-content">{agentOutput()}</pre>
+                </div>
+              </div>
+            </Show>
+
+            <Show when={selectedAgent() === null && todosFromSteps().length}>
               <div class="spd-section">
                 <div class="spdt-header">
                   <span>
@@ -254,9 +350,7 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
                               <div class="spdti-collapse-content">
                                 <div class="spcd-row">
                                   <span class="spcd-label">🚀 当前执行：</span>
-                                  <span class="spcd-value">
-                                    {activeAgent()?.description || "-"}
-                                  </span>
+                                  <span class="spcd-value">{activeAgent()?.description || "-"}</span>
                                 </div>
                                 <div class="spcd-row">
                                   <span class="spcd-label">开始时间：</span>
@@ -281,7 +375,7 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
               </div>
             </Show>
 
-            <Show when={filteredAgentFlow().length}>
+            <Show when={selectedAgent() === null && filteredAgentFlow().length}>
               <div class="spd-section">
                 <div class="spdt-header">流转日志</div>
                 <div class="spd-flow-list-centered">
