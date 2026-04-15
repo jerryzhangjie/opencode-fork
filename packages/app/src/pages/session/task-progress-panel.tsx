@@ -1,10 +1,12 @@
 import { For, Show, createMemo, createSignal } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
-import type { Message } from "@opencode-ai/sdk/v2/client"
-import type { Part } from "@opencode-ai/sdk/v2"
+import type { Message as MessageType } from "@opencode-ai/sdk/v2/client"
+import type { Part as PartType } from "@opencode-ai/sdk/v2"
 import { base64Encode } from "@opencode-ai/util/encode"
 import { useSync } from "@/context/sync"
 import { useSDK } from "@/context/sdk"
+import { DataProvider } from "@opencode-ai/ui/context"
+import { Message } from "@opencode-ai/ui/message-part"
 
 export type StepAgent = {
   name: string
@@ -78,8 +80,8 @@ export type TaskProgressPanelProps = {
   scheduleDetail: () => AgentScheduleDetail
   agentConfig: () => AgentConfig
   childSessionIds?: () => any[]
-  messages?: () => Message[]
-  parts?: () => Part[]
+  messages?: () => MessageType[]
+  parts?: () => PartType[]
   class?: string
 }
 
@@ -114,8 +116,9 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
   const sdk = useSDK()
   const [selectedAgent, setSelectedAgent] = createSignal<string | null>(null)
   const [agentOutput, setAgentOutput] = createSignal<string>("")
-  const [childSessionMessages, setChildSessionMessages] = createSignal<Message[]>([])
-  const [childSessionParts, setChildSessionParts] = createSignal<Part[]>([])
+  const [childSessionMessages, setChildSessionMessages] = createSignal<MessageType[]>([])
+  const [childSessionParts, setChildSessionParts] = createSignal<PartType[]>([])
+  const [currentChildSession, setCurrentChildSession] = createSignal<any>(null)
 
   const allAgents = createMemo(() => {
     const detail = props.scheduleDetail()
@@ -239,12 +242,13 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     const child = findChildSessionForAgent(agent.name)
     if (child) {
       setSelectedAgent(agent.name)
-      fetchChildSessionMessages(child).then(() => {
-        setAgentOutput(extractAgentOutputForChild(agent.name))
-      })
+      setCurrentChildSession(child)
+      setAgentOutput("")
+      fetchChildSessionMessages(child)
       return
     }
     setSelectedAgent(agent.name)
+    setCurrentChildSession(null)
     setAgentOutput(extractAgentOutput(agent.name))
   }
 
@@ -252,18 +256,40 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     const messages = childSessionMessages() as any[]
     if (!messages || messages.length === 0) return "暂无输出内容"
 
-    const texts: string[] = []
+    const lines: string[] = []
     for (const item of messages) {
       const msg = item.info
-      if (!msg || msg.role !== "assistant") continue
+      if (!msg) continue
       const parts = item.parts || []
-      for (const part of parts) {
-        if (part.type === "text" && part.text?.trim()) {
-          texts.push(part.text)
+
+      if (msg.role === "user" && parts.length > 0) {
+        const userText = parts
+          .filter((p: any) => p.type === "text")
+          .map((p: any) => p.text)
+          .join("")
+        if (userText.trim()) {
+          lines.push(`[用户]: ${userText}`)
+        }
+        continue
+      }
+
+      if (msg.role === "assistant") {
+        for (const part of parts) {
+          if (part.type === "text" && part.text?.trim()) {
+            lines.push(part.text)
+          } else if (part.type === "tool") {
+            const toolName = part.tool || "tool"
+            const toolInput = (part as any).state?.input
+            const inputStr = typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput, null, 2)
+            lines.push(`[${toolName}]: ${inputStr}`)
+          } else if (part.type === "image") {
+            lines.push("[图片]")
+          }
         }
       }
     }
-    return texts.length > 0 ? texts.join("\n") : "暂无输出内容"
+
+    return lines.length > 0 ? lines.join("\n\n") : "暂无输出内容"
   }
 
   const handleShowAll = () => {
@@ -300,6 +326,43 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     const todos = todosFromSteps()
     return todos.filter((t) => t.status === "completed").length
   })
+
+  const childSessionData = createMemo(() => {
+    const messages = childSessionMessages() as any[]
+    if (!messages) return null
+
+    const partMap: Record<string, any[]> = {}
+    const messageList: any[] = []
+
+    for (const item of messages) {
+      if (item.info) {
+        messageList.push(item.info)
+        if (item.info.id && item.parts) {
+          partMap[item.info.id] = item.parts
+        }
+      }
+    }
+
+    const child = currentChildSession()
+
+    return {
+      store: {
+        agent: [],
+        session: [],
+        session_status: {},
+        session_diff: {},
+        message: { "": messageList },
+        part: partMap,
+      },
+      directory: child?.directory || "",
+    }
+  })
+
+  const childSessionContent = () => {
+    const messages = childSessionMessages() as any[]
+    if (!messages || messages.length === 0) return null
+    return messages
+  }
 
   return (
     <div class={`sd-panel sd-progress ${props.class || ""}`}>
@@ -366,7 +429,16 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
                   <span>{getAgentLabel(currentSelectedAgent()!.name, props.agentConfig())} 输出</span>
                 </div>
                 <div class="spd-agent-output">
-                  <pre class="spd-output-content">{agentOutput()}</pre>
+                  <Show when={childSessionData() && currentChildSession()}>
+                    <DataProvider data={childSessionData()!.store} directory={childSessionData()!.directory}>
+                      <For each={childSessionContent()}>
+                        {(item) => <Message message={item.info} parts={item.parts} />}
+                      </For>
+                    </DataProvider>
+                  </Show>
+                  <Show when={!childSessionData() || !currentChildSession()}>
+                    <pre class="spd-output-content">{agentOutput()}</pre>
+                  </Show>
                 </div>
               </div>
             </Show>
