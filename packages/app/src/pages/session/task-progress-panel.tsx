@@ -2,7 +2,9 @@ import { For, Show, createMemo, createSignal } from "solid-js"
 import { Icon } from "@opencode-ai/ui/icon"
 import type { Message } from "@opencode-ai/sdk/v2/client"
 import type { Part } from "@opencode-ai/sdk/v2"
+import { base64Encode } from "@opencode-ai/util/encode"
 import { useSync } from "@/context/sync"
+import { useSDK } from "@/context/sdk"
 
 export type StepAgent = {
   name: string
@@ -75,6 +77,7 @@ export type TaskProgressPanelProps = {
   selectedTask: () => TaskInfo | null
   scheduleDetail: () => AgentScheduleDetail
   agentConfig: () => AgentConfig
+  childSessionIds?: () => any[]
   messages?: () => Message[]
   parts?: () => Part[]
   class?: string
@@ -108,8 +111,11 @@ const getTodoStatusLabel = (status: string) => {
 
 export function TaskProgressPanel(props: TaskProgressPanelProps) {
   const sync = useSync()
+  const sdk = useSDK()
   const [selectedAgent, setSelectedAgent] = createSignal<string | null>(null)
   const [agentOutput, setAgentOutput] = createSignal<string>("")
+  const [childSessionMessages, setChildSessionMessages] = createSignal<Message[]>([])
+  const [childSessionParts, setChildSessionParts] = createSignal<Part[]>([])
 
   const allAgents = createMemo(() => {
     const detail = props.scheduleDetail()
@@ -154,18 +160,26 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     if (!messages || messages.length === 0) return "暂无输出内容"
 
     const allParts = sync.data.part
-    console.log("allParts keys count:", allParts ? Object.keys(allParts).length : 0)
 
     const assistantMessages = messages.filter((m) => m.role === "assistant")
-    const userMessages = messages.filter((m) => m.role === "user")
-    const pmUserMsgs = userMessages.filter((m) => m.agent === "product-manager")
-    console.log("User messages with product-manager:", pmUserMsgs.length)
-    if (pmUserMsgs.length > 0) {
-      const pmUserMsg = pmUserMsgs[0]
-      const msgId = (pmUserMsg as any).id
-      console.log("PM user msgID:", msgId)
-      const childParts = allParts?.[msgId]
-      console.log("Child parts for PM user:", childParts?.length)
+
+    const taskToolParts: string[] = []
+    for (const msg of assistantMessages) {
+      const msgId = (msg as any).id
+      const msgParts = allParts?.[msgId]
+      if (!msgParts) continue
+      for (const part of msgParts) {
+        if (part.type === "tool" && (part as any).tool === "task") {
+          const input = (part as any).input || {}
+          if (input.subagent_type === agentName && input.description) {
+            taskToolParts.push(input.description)
+          }
+        }
+      }
+    }
+
+    if (taskToolParts.length > 0) {
+      return taskToolParts.join("\n\n")
     }
 
     const filtered = assistantMessages.filter((m) => m.agent === agentName)
@@ -199,14 +213,63 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
     return texts.length > 0 ? texts.join("\n") : "暂无输出内容"
   }
 
+  const findChildSessionForAgent = (agentName: string) => {
+    const sessions = props.childSessionIds?.() || []
+    const pattern = `@${agentName} subagent`
+    return sessions.find((s) => s.title?.includes(pattern))
+  }
+
+  const fetchChildSessionMessages = async (childSession: { id: string; directory: string }) => {
+    try {
+      const client = sdk.client
+      const result = await client.session.messages({
+        sessionID: childSession.id,
+        directory: childSession.directory,
+        limit: 50,
+      })
+      if (result.data) {
+        setChildSessionMessages(result.data as any[])
+      }
+    } catch (error) {
+      console.error("获取子session消息失败:", error)
+    }
+  }
+
   const handleAgentClick = (agent: AgentInfo) => {
+    const child = findChildSessionForAgent(agent.name)
+    if (child) {
+      setSelectedAgent(agent.name)
+      fetchChildSessionMessages(child).then(() => {
+        setAgentOutput(extractAgentOutputForChild(agent.name))
+      })
+      return
+    }
     setSelectedAgent(agent.name)
     setAgentOutput(extractAgentOutput(agent.name))
+  }
+
+  const extractAgentOutputForChild = (agentName: string) => {
+    const messages = childSessionMessages() as any[]
+    if (!messages || messages.length === 0) return "暂无输出内容"
+
+    const texts: string[] = []
+    for (const item of messages) {
+      const msg = item.info
+      if (!msg || msg.role !== "assistant") continue
+      const parts = item.parts || []
+      for (const part of parts) {
+        if (part.type === "text" && part.text?.trim()) {
+          texts.push(part.text)
+        }
+      }
+    }
+    return texts.length > 0 ? texts.join("\n") : "暂无输出内容"
   }
 
   const handleShowAll = () => {
     setSelectedAgent(null)
     setAgentOutput("")
+    setChildSessionMessages([])
   }
 
   const todosFromSteps = createMemo(() => {

@@ -363,6 +363,7 @@ export default function Page() {
 
   const [selectedTask, setSelectedTask] = createSignal<TaskInfo | null>(null)
   const [scheduleDetail, setScheduleDetail] = createSignal<AgentScheduleDetail>({})
+  const [childSessionIds, setChildSessionIds] = createSignal<any[]>([])
   let pollingTimer: ReturnType<typeof setInterval> | undefined
 
   const fetchAgentScheduleDetail = async (codeDirectoryId: string) => {
@@ -384,6 +385,25 @@ export default function Page() {
       }
     } catch (error) {
       console.error("获取任务进展失败:", error)
+    }
+  }
+
+  const fetchChildSessionIds = async (sessionId: string, codeDirectoryId: string) => {
+    try {
+      const apiUrl = `http://localhost:4096/session/${sessionId}/children?directory=${decodeURIComponent(codeDirectoryId)}`
+      const response = await fetch(apiUrl, {
+        headers: {
+          username: "cuixujia",
+        },
+      })
+      const result = await response.json()
+      if (Array.isArray(result)) {
+        setChildSessionIds(result)
+      } else if (result && result.code === 0 && Array.isArray(result.data)) {
+        setChildSessionIds(result.data)
+      }
+    } catch (error) {
+      console.error("获取子agent session失败:", error)
     }
   }
 
@@ -849,9 +869,13 @@ export default function Page() {
 
   const loadTaskProgress = () => {
     const codeDirectoryId = params.dir
+    const sessionId = params.id
     if (codeDirectoryId) {
       void fetchAgentScheduleDetail(codeDirectoryId)
       startPolling(codeDirectoryId)
+    }
+    if (sessionId && codeDirectoryId) {
+      void fetchChildSessionIds(sessionId, codeDirectoryId)
     }
   }
 
@@ -2141,6 +2165,7 @@ export default function Page() {
             "qa-engineer": { label: "测试专家", icon: "🧪" },
             default: { label: "智能代理", icon: "🤖" },
           })}
+          childSessionIds={() => childSessionIds()}
           messages={messages}
           parts={allParts}
         />
