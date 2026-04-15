@@ -69,6 +69,7 @@ import { Persist, persisted } from "@/utils/persist"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { same } from "@/utils/same"
 import { formatServerError } from "@/utils/server-errors"
+import { fetchAgentScheduleDetail, fetchChildSessionIds } from "@/utils/ai-design-api"
 
 const emptyUserMessages: UserMessage[] = []
 type FollowupItem = FollowupDraft & { id: string }
@@ -366,54 +367,19 @@ export default function Page() {
   const [childSessionIds, setChildSessionIds] = createSignal<any[]>([])
   let pollingTimer: ReturnType<typeof setInterval> | undefined
 
-  const fetchAgentScheduleDetail = async (codeDirectoryId: string) => {
-    try {
-      const response = await fetch(
-        `http://localhost:8888/workOrder/agentScheduleDetail?codeDirectoryId=${encodeURIComponent(codeDirectoryId)}`,
-        {
-          headers: {
-            username: "cuixujia",
-          },
-        },
-      )
-      const result = await response.json()
-      if (result && result.code === 0 && result.data) {
-        setScheduleDetail(result.data)
-        if (result.data.steps) {
-          setSelectedTask(result.data)
-        }
-      }
-    } catch (error) {
-      console.error("获取任务进展失败:", error)
-    }
-  }
-
-  const fetchChildSessionIds = async (sessionId: string, codeDirectoryId: string) => {
-    try {
-      const apiUrl = `http://localhost:4096/session/${sessionId}/children?directory=${decodeURIComponent(codeDirectoryId)}`
-      const response = await fetch(apiUrl, {
-        headers: {
-          username: "cuixujia",
-        },
-      })
-      const result = await response.json()
-      if (Array.isArray(result)) {
-        setChildSessionIds(result)
-      } else if (result && result.code === 0 && Array.isArray(result.data)) {
-        setChildSessionIds(result.data)
-      }
-    } catch (error) {
-      console.error("获取子agent session失败:", error)
-    }
-  }
-
   const startPolling = (codeDirectoryId: string) => {
     if (pollingTimer) {
       clearInterval(pollingTimer)
       pollingTimer = undefined
     }
-    pollingTimer = setInterval(() => {
-      void fetchAgentScheduleDetail(codeDirectoryId)
+    pollingTimer = setInterval(async () => {
+      const data = await fetchAgentScheduleDetail(codeDirectoryId)
+      if (data) {
+        setScheduleDetail(data)
+        if (data.steps) {
+          setSelectedTask(data as TaskInfo)
+        }
+      }
     }, 3000)
   }
 
@@ -867,15 +833,22 @@ export default function Page() {
     gitMutation.mutate()
   }
 
-  const loadTaskProgress = () => {
+  const loadTaskProgress = async () => {
     const codeDirectoryId = params.dir
     const sessionId = params.id
     if (codeDirectoryId) {
-      void fetchAgentScheduleDetail(codeDirectoryId)
+      const data = await fetchAgentScheduleDetail(codeDirectoryId)
+      if (data) {
+        setScheduleDetail(data)
+        if (data.steps) {
+          setSelectedTask(data as TaskInfo)
+        }
+      }
       startPolling(codeDirectoryId)
     }
     if (sessionId && codeDirectoryId) {
-      void fetchChildSessionIds(sessionId, codeDirectoryId)
+      const ids = await fetchChildSessionIds(sessionId, codeDirectoryId)
+      setChildSessionIds(ids)
     }
   }
 
@@ -2163,7 +2136,6 @@ export default function Page() {
             "frontend-component-expert": { label: "前端组件专家", icon: "🧩" },
             "frontend-module-developer": { label: "前端模块开发专家", icon: "💻" },
             "qa-engineer": { label: "测试专家", icon: "🧪" },
-            default: { label: "智能代理", icon: "🤖" },
           })}
           childSessionIds={() => childSessionIds()}
           messages={messages}

@@ -97,7 +97,7 @@ const getAgentLabel = (key: string, config: AgentConfig) => {
 }
 
 const getAgentIcon = (key: string, config: AgentConfig) => {
-  return config[key]?.icon || config["default"]?.icon || "🤖"
+  return config[key]?.icon || "🤖"
 }
 
 const getAgentStatusClass = (status: string) => {
