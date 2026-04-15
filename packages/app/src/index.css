@@ -73,6 +73,7 @@
     flex-direction: column;
     height: 100%;
     width: 100%;
+    min-width: 0;
     background: var(--color-background-base);
   }
 
@@ -89,10 +90,27 @@
   .sd-progress-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: visible;
     padding: 0 16px 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    min-width: 0;
+    
+  }
+
+  .sd-progress-list::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .sd-progress-list::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .sd-progress-list::-webkit-scrollbar-thumb {
+    background: var(--color-border-base);
+    border-radius: 3px;
   }
 
   .spd-section {
@@ -106,16 +124,41 @@
   .spd-agents-flow-wrapper {
     width: 100%;
     overflow-x: auto;
+    overflow-y: hidden;
     padding-bottom: 8px;
+    
   }
 
   .spd-agents-flow-wrapper::-webkit-scrollbar {
-    height: 4px;
+    height: 6px;
+    width: 6px;
+  }
+
+  .spd-agents-flow-wrapper::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   .spd-agents-flow-wrapper::-webkit-scrollbar-thumb {
-    background: var(--color-border-weak);
-    border-radius: 2px;
+    background: var(--color-border-base);
+    border-radius: 3px;
+  }
+
+  .spd-agent-output {
+    
+  }
+
+  .spd-agent-output::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .spd-agent-output::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .spd-agent-output::-webkit-scrollbar-thumb {
+    background: var(--color-border-base);
+    border-radius: 3px;
   }
 
   .spd-agents-flow {
@@ -313,6 +356,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    overflow: visible;
+    width: 100%;
+    min-width: 0;
   }
 
   .spdt-item {
@@ -390,7 +436,8 @@
     color: var(--color-text-base);
     margin: 0 auto;
     width: 100%;
-    white-space: nowrap;
+    overflow: hidden;
+    flex-wrap: wrap;
   }
 
   .spdtr-time {
@@ -423,10 +470,9 @@
   .spdtr-title {
     color: var(--color-text-muted);
     font-style: italic;
-    max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-left: 10px;
+    white-space: nowrap;
   }
 
   .sp-empty {
@@ -539,6 +585,36 @@
     padding: 12px;
     max-height: 400px;
     overflow-y: auto;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .spd-child-session-content {
+    max-width: 100%;
+    overflow-x: auto;
+    width: 100%;
+    min-width: 0;
+    
+  }
+
+  .spd-child-session-content::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .spd-child-session-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .spd-child-session-content::-webkit-scrollbar-thumb {
+    background: var(--color-border-base);
+    border-radius: 3px;
+  }
+
+  .spd-child-session-content > * {
+    max-width: 100%;
+    min-width: 0;
+    width: 100%;
   }
 
   .spd-output-content {
@@ -549,5 +625,20 @@
     word-break: break-word;
     margin: 0;
     font-family: inherit;
+    
+  }
+
+  .spd-output-content::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .spd-output-content::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .spd-output-content::-webkit-scrollbar-thumb {
+    background: var(--color-border-base);
+    border-radius: 3px;
   }
 }

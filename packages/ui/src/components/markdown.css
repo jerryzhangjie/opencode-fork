@@ -233,6 +233,21 @@
     font-size: var(--font-size-base);
     display: block;
     overflow-x: auto;
+    
+  }
+
+  table::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  table::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  table::-webkit-scrollbar-thumb {
+    background: var(--color-border-base);
+    border-radius: 3px;
   }
 
   th,

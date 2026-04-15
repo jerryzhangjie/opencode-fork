@@ -430,11 +430,16 @@ export function TaskProgressPanel(props: TaskProgressPanelProps) {
                 </div>
                 <div class="spd-agent-output">
                   <Show when={childSessionData() && currentChildSession()}>
-                    <DataProvider data={childSessionData()!.store} directory={childSessionData()!.directory}>
-                      <For each={childSessionContent()}>
-                        {(item) => <Message message={item.info} parts={item.parts} />}
-                      </For>
-                    </DataProvider>
+                    <div
+                      class="spd-child-session-content"
+                      style={{ "max-width": "100%", "overflow-x": "auto", width: "100%" }}
+                    >
+                      <DataProvider data={childSessionData()!.store} directory={childSessionData()!.directory}>
+                        <For each={childSessionContent()}>
+                          {(item) => <Message message={item.info} parts={item.parts} />}
+                        </For>
+                      </DataProvider>
+                    </div>
                   </Show>
                   <Show when={!childSessionData() || !currentChildSession()}>
                     <pre class="spd-output-content">{agentOutput()}</pre>
