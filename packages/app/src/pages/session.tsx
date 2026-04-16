@@ -366,6 +366,7 @@ export default function Page() {
   const [scheduleDetail, setScheduleDetail] = createSignal<AgentScheduleDetail>({})
   const [childSessionIds, setChildSessionIds] = createSignal<any[]>([])
   let pollingTimer: ReturnType<typeof setInterval> | undefined
+  let childSessionFetchId: string | undefined
 
   const startPolling = (codeDirectoryId: string) => {
     if (pollingTimer) {
@@ -373,7 +374,7 @@ export default function Page() {
       pollingTimer = undefined
     }
     pollingTimer = setInterval(async () => {
-      const data = await fetchAgentScheduleDetail(codeDirectoryId)
+      const data = await fetchAgentScheduleDetail(codeDirectoryId, params.id ?? "")
       if (data) {
         setScheduleDetail(data)
         if (data.steps) {
@@ -836,8 +837,10 @@ export default function Page() {
   const loadTaskProgress = async () => {
     const codeDirectoryId = params.dir
     const sessionId = params.id
+    const parentID = info()?.parentID
+    const targetSessionId = parentID ?? sessionId
     if (codeDirectoryId) {
-      const data = await fetchAgentScheduleDetail(codeDirectoryId)
+      const data = await fetchAgentScheduleDetail(codeDirectoryId, sessionId!)
       if (data) {
         setScheduleDetail(data)
         if (data.steps) {
@@ -846,15 +849,35 @@ export default function Page() {
       }
       startPolling(codeDirectoryId)
     }
-    if (sessionId && codeDirectoryId) {
-      const ids = await fetchChildSessionIds(sessionId, codeDirectoryId)
-      setChildSessionIds(ids)
+    if (targetSessionId && codeDirectoryId) {
+      childSessionFetchId = targetSessionId
+      const ids = await fetchChildSessionIds(targetSessionId, codeDirectoryId)
+      if (childSessionFetchId === targetSessionId) {
+        setChildSessionIds(ids)
+      }
     }
   }
 
   onMount(() => {
     void loadTaskProgress()
   })
+
+  createEffect(
+    on(
+      () => info()?.parentID,
+      (parentID) => {
+        if (!parentID) return
+        const codeDirectoryId = params.dir
+        if (!codeDirectoryId) return
+        childSessionFetchId = parentID
+        void fetchChildSessionIds(parentID, codeDirectoryId).then((ids) => {
+          if (childSessionFetchId === parentID) {
+            setChildSessionIds(ids)
+          }
+        })
+      },
+    ),
+  )
 
   let inputRef!: HTMLDivElement
   let promptDock: HTMLDivElement | undefined

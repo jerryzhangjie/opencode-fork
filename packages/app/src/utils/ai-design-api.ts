@@ -69,8 +69,11 @@ interface ApiResponse<T> {
   message?: string
 }
 
-export async function fetchAgentScheduleDetail(codeDirectoryId: string): Promise<AgentScheduleDetail | null> {
-  const url = `http://localhost:8888/workOrder/agentScheduleDetail?codeDirectoryId=${encodeURIComponent(codeDirectoryId)}`
+export async function fetchAgentScheduleDetail(
+  codeDirectoryId: string,
+  sessionId: string,
+): Promise<AgentScheduleDetail | null> {
+  const url = `http://localhost:8888/workOrder/agentScheduleDetail?codeDirectoryId=${encodeURIComponent(codeDirectoryId)}&sessionId=${encodeURIComponent(sessionId)}`
   const result = await apiFetch<ApiResponse<AgentScheduleDetail>>(url)
   if (result && result.code === 0 && result.data) {
     return result.data
